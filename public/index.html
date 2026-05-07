@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>PrivatVoice • Свой звонок</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0a0a0f">
+    <link rel="apple-touch-icon" href="/icon-192.png">
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --surface: #14141f;
+            --surface2: #1e1e2e;
+            --border: rgba(255, 255, 255, 0.06);
+            --accent: #8b5cf6;
+            --accent2: #a78bfa;
+            --green: #10b981;
+            --red: #ef4444;
+            --text: #e2e8f0;
+            --text2: #94a3b8;
+            --radius: 20px;
+            --msg-you: #8b5cf6;
+            --msg-friend: #1e1e2e;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh; height: 100dvh;
+            display: flex; flex-direction: column;
+            overflow: hidden;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Шапка */
+        .header {
+            background: var(--surface);
+            padding: 16px 20px;
+            display: flex; align-items: center; justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+            backdrop-filter: blur(12px); z-index: 10;
+            gap: 12px; flex-shrink: 0;
+        }
+        .logo { font-weight: 800; font-size: 20px; letter-spacing: -0.5px; background: linear-gradient(135deg, var(--accent2), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .room-badge {
+            background: var(--surface2); padding: 6px 14px; border-radius: 30px;
+            font-size: 12px; font-weight: 600; color: var(--accent2);
+            border: 1px solid rgba(139, 92, 246, 0.3); font-family: monospace;
+        }
+
+        /* Сетка звонка */
+        .call-grid {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 20px; gap: 16px; flex-shrink: 0;
+            min-height: 180px; background: radial-gradient(ellipse at center, rgba(139,92,246,0.05) 0%, transparent 70%);
+        }
+        .participants {
+            display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
+        }
+        .avatar-card {
+            background: var(--surface); border-radius: var(--radius); padding: 12px 16px;
+            display: flex; flex-direction: column; align-items: center; gap: 6px;
+            border: 2px solid transparent; transition: 0.2s; min-width: 80px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+        .avatar-card.speaking {
+            border-color: var(--accent); box-shadow: 0 0 25px rgba(139,92,246,0.4);
+        }
+        .avatar-icon {
+            width: 44px; height: 44px; border-radius: 50%; background: var(--surface2);
+            display: flex; align-items: center; justify-content: center; font-size: 20px;
+        }
+        .nickname {
+            font-size: 13px; font-weight: 600; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .controls {
+            display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
+        }
+        .ctrl-btn {
+            width: 48px; height: 48px; border-radius: 50%; border: none;
+            background: var(--surface2); color: var(--text); font-size: 20px;
+            cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center;
+            border: 1px solid var(--border);
+        }
+        .ctrl-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+        .ctrl-btn.danger { background: var(--red); color: white; border-color: var(--red); }
+
+        /* Чат */
+        .chat-container {
+            flex: 1; display: flex; flex-direction: column; background: var(--surface);
+            border-top: 1px solid var(--border); overflow: hidden; min-height: 0;
+        }
+        .messages {
+            flex: 1; overflow-y: auto; padding: 16px;
+            display: flex; flex-direction: column; gap: 8px;
+            scroll-behavior: smooth;
+        }
+        .msg {
+            max-width: 80%; padding: 10px 14px; border-radius: 18px;
+            font-size: 14px; line-height: 1.4; word-break: break-word;
+            animation: fadeIn 0.2s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .msg.you { align-self: flex-end; background: var(--msg-you); color: white; border-bottom-right-radius: 4px; }
+        .msg.friend { align-self: flex-start; background: var(--msg-friend); border-bottom-left-radius: 4px; }
+        .msg img { max-width: 200px; border-radius: 12px; cursor: pointer; margin-top: 4px; }
+        .msg .file-link { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.1); padding: 8px 12px; border-radius: 10px; text-decoration: none; color: white; }
+        .msg .sender { font-size: 11px; color: var(--accent2); font-weight: 600; margin-bottom: 2px; }
+
+        .input-area {
+            display: flex; align-items: center; gap: 8px; padding: 12px 16px;
+            background: var(--surface2); border-top: 1px solid var(--border);
+        }
+        .input-area input[type="text"] {
+            flex: 1; background: transparent; border: none; color: var(--text);
+            font-size: 15px; outline: none; padding: 10px;
+        }
+        .input-area input[type="text"]::placeholder { color: var(--text2); }
+        .icon-btn {
+            background: none; border: none; color: var(--text2); font-size: 20px;
+            cursor: pointer; padding: 6px; transition: 0.2s; border-radius: 50%;
+        }
+        .icon-btn:hover { color: var(--accent2); background: rgba(255,255,255,0.05); }
+
+        /* Модалки */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px);
+            display: flex; align-items: center; justify-content: center; z-index: 100;
+        }
+        .modal {
+            background: var(--surface); border-radius: 28px; padding: 32px 24px;
+            width: 90%; max-width: 380px; text-align: center; border: 1px solid var(--border);
+            box-shadow: 0 25px 70px rgba(0,0,0,0.7);
+        }
+        .modal h2 { margin-bottom: 20px; font-size: 22px; }
+        .modal input {
+            width: 100%; padding: 14px 16px; background: var(--surface2); border: 1px solid var(--border);
+            border-radius: 16px; color: var(--text); font-size: 16px; margin-bottom: 16px; outline: none;
+        }
+        .modal button {
+            width: 100%; padding: 14px; border-radius: 16px; border: none;
+            background: var(--accent); color: white; font-weight: 700; font-size: 16px; cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Модальное окно: Вход -->
+    <div id="loginModal" class="modal-overlay">
+        <div class="modal">
+            <h2>🚀 Вход в PrivatVoice</h2>
+            <input type="text" id="nicknameInput" placeholder="Твой никнейм">
+            <input type="text" id="roomInput" placeholder="ID комнаты (или создай новую)">
+            <button onclick="enterRoom()">Войти в комнату</button>
+            <p style="margin-top:12px; color:var(--text2); font-size:13px;">Оставь ID пустым, чтобы создать новую</p>
+        </div>
+    </div>
+
+    <!-- Основной интерфейс (скрыт до входа) -->
+    <div id="appUI" style="display: none; flex-direction: column; height: 100%;">
+        <div class="header">
+            <span class="logo">🔒 PrivatVoice</span>
+            <span class="room-badge" id="roomDisplay"></span>
+        </div>
+
+        <div class="call-grid">
+            <div class="participants" id="participantsList"></div>
+            <div class="controls">
+                <button class="ctrl-btn active" id="micBtn" onclick="toggleMic()">🎤</button>
+                <button class="ctrl-btn active" id="noiseBtn" onclick="toggleNoise()">✨</button>
+                <button class="ctrl-btn" id="cameraBtn" onclick="toggleCamera()">📷</button>
+                <button class="ctrl-btn danger" onclick="leaveRoom()">📴</button>
+            </div>
+        </div>
+
+        <div class="chat-container">
+            <div class="messages" id="messagesContainer"></div>
+            <div class="input-area">
+                <input type="file" id="fileInput" hidden multiple>
+                <button class="icon-btn" onclick="document.getElementById('fileInput').click()">📎</button>
+                <input type="text" id="messageInput" placeholder="Сообщение..." onkeypress="if(event.key==='Enter')sendMessage()">
+                <button class="icon-btn" onclick="sendMessage()" style="font-size:24px;">➤</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
+    <script>
+        // ==================== СОСТОЯНИЕ ====================
+        const state = {
+            nickname: '',
+            roomId: '',
+            peer: null,
+            myPeerId: '',
+            localStream: null,
+            peers: {}, // { peerId: { call, dataConnection, stream } }
+            isMicOn: true,
+            isNoiseOn: true,
+            isCameraOn: false,
+            dataConnections: {}
+        };
+
+        // ==================== ВХОД В КОМНАТУ ====================
+        function enterRoom() {
+            const nick = document.getElementById('nicknameInput').value.trim() || 'Гость';
+            let room = document.getElementById('roomInput').value.trim();
+            if (!room) room = 'room-' + Math.random().toString(36).substring(2, 10);
+
+            state.nickname = nick;
+            state.roomId = room;
+            document.getElementById('roomDisplay').textContent = `🏠 ${room}`;
+
+            document.getElementById('loginModal').style.display = 'none';
+            document.getElementById('appUI').style.display = 'flex';
+            initPeerAndJoin();
+        }
+
+        async function initPeerAndJoin() {
+            state.peer = new Peer({ debug: 0 });
+            state.peer.on('open', async (id) => {
+                state.myPeerId = id;
+                addParticipant(id, state.nickname, true);
+                await startLocalStream();
+
+                // Звоним всем в комнате (mesh-сеть)
+                // В реальном приложении нужен сигнальный сервер для списка участников.
+                // Здесь для простоты: звоним создателю комнаты, если это не мы.
+                // (Логика mesh: каждый новенький звонит всем существующим)
+            });
+
+            state.peer.on('call', async (call) => {
+                if (!state.localStream) await startLocalStream();
+                call.answer(state.localStream);
+                handleCall(call);
+            });
+
+            state.peer.on('connection', (conn) => {
+                handleDataConnection(conn);
+            });
+        }
+
+        async function startLocalStream() {
+            state.localStream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: state.isNoiseOn,
+                    autoGainControl: true,
+                },
+                video: state.isCameraOn
+            });
+            updateMicButton();
+        }
+
+        // ==================== ЗВОНКИ (MESH) ====================
+        function callPeer(remotePeerId) {
+            if (!state.localStream) return;
+            const call = state.peer.call(remotePeerId, state.localStream);
+            handleCall(call);
+        }
+
+        function handleCall(call) {
+            call.on('stream', (remoteStream) => {
+                addParticipant(call.peer, 'Участник', false, remoteStream);
+                state.peers[call.peer] = { call, stream: remoteStream };
+            });
+            call.on('close', () => removeParticipant(call.peer));
+            call.on('error', () => removeParticipant(call.peer));
+        }
+
+        // ==================== DATA CHANNEL (ЧАТ И ФАЙЛЫ) ====================
+        function connectToPeer(peerId) {
+            const conn = state.peer.connect(peerId, { reliable: true });
+            handleDataConnection(conn);
+        }
+
+        function handleDataConnection(conn) {
+            conn.on('open', () => {
+                state.dataConnections[conn.peer] = conn;
+                // Отправляем свой ник
+                conn.send({ type: 'nickname', nickname: state.nickname });
+            });
+            conn.on('data', (data) => {
+                if (data.type === 'message') {
+                    displayMessage(data.nickname, data.text, false);
+                } else if (data.type === 'file') {
+                    displayFile(data.nickname, data.fileName, data.fileData, data.fileType);
+                } else if (data.type === 'nickname') {
+                    // Обновить ник участника
+                    const card = document.querySelector(`[data-peer="${conn.peer}"] .nickname`);
+                    if (card) card.textContent = data.nickname;
+                }
+            });
+        }
+
+        function broadcastData(data) {
+            Object.values(state.dataConnections).forEach(conn => conn.send(data));
+        }
+
+        // ==================== ОТПРАВКА СООБЩЕНИЙ И ФАЙЛОВ ====================
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const text = input.value.trim();
+            if (!text) return;
+            displayMessage(state.nickname, text, true);
+            broadcastData({ type: 'message', nickname: state.nickname, text });
+            input.value = '';
+        }
+
+        function displayMessage(nick, text, isYou) {
+            const div = document.createElement('div');
+            div.className = `msg ${isYou ? 'you' : 'friend'}`;
+            div.innerHTML = `<div class="sender">${nick}</div>${text}`;
+            document.getElementById('messagesContainer').appendChild(div);
+            div.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        document.getElementById('fileInput').addEventListener('change', async (e) => {
+            const files = e.target.files;
+            for (const file of files) {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    const base64 = ev.target.result;
+                    broadcastData({
+                        type: 'file',
+                        nickname: state.nickname,
+                        fileName: file.name,
+                        fileData: base64,
+                        fileType: file.type
+                    });
+                    displayFile(state.nickname, file.name, base64, file.type);
+                };
+                reader.readAsDataURL(file);
+            }
+            e.target.value = '';
+        });
+
+        function displayFile(nick, fileName, data, type) {
+            const div = document.createElement('div');
+            div.className = 'msg you'; // Упрощённо
+            if (type.startsWith('image/')) {
+                div.innerHTML = `<div class="sender">${nick}</div><img src="${data}" alt="${fileName}">`;
+            } else {
+                div.innerHTML = `<div class="sender">${nick}</div><a class="file-link" href="${data}" download="${fileName}">📄 ${fileName}</a>`;
+            }
+            document.getElementById('messagesContainer').appendChild(div);
+        }
+
+        // ==================== УПРАВЛЕНИЕ УСТРОЙСТВАМИ ====================
+        function toggleMic() {
+            state.isMicOn = !state.isMicOn;
+            if (state.localStream) state.localStream.getAudioTracks().forEach(t => t.enabled = state.isMicOn);
+            updateMicButton();
+        }
+        function updateMicButton() {
+            const btn = document.getElementById('micBtn');
+            btn.textContent = state.isMicOn ? '🎤' : '🔇';
+            btn.className = `ctrl-btn ${state.isMicOn ? 'active' : ''}`;
+        }
+
+        function toggleNoise() {
+            state.isNoiseOn = !state.isNoiseOn;
+            // Пересоздаём аудио-трек с новыми настройками
+            if (state.localStream) {
+                state.localStream.getAudioTracks().forEach(t => t.stop());
+                startLocalStream();
+                // Обновить звонки
+                Object.values(state.peers).forEach(p => p.call?.peerConnection?.getSenders().forEach(s => s.replaceTrack(state.localStream.getAudioTracks()[0])));
+            }
+            document.getElementById('noiseBtn').className = `ctrl-btn ${state.isNoiseOn ? 'active' : ''}`;
+        }
+
+        function toggleCamera() {
+            state.isCameraOn = !state.isCameraOn;
+            if (state.localStream) {
+                state.localStream.getVideoTracks().forEach(t => t.stop());
+                startLocalStream();
+            }
+            document.getElementById('cameraBtn').className = `ctrl-btn ${state.isCameraOn ? 'active' : ''}`;
+        }
+
+        function leaveRoom() {
+            location.reload();
+        }
+
+        // Карточки участников
+        function addParticipant(peerId, nick, isMe, stream) {
+            const list = document.getElementById('participantsList');
+            const card = document.createElement('div');
+            card.className = 'avatar-card'; card.dataset.peer = peerId;
+            card.innerHTML = `<div class="avatar-icon">${isMe ? '😎' : '🎧'}</div><div class="nickname">${nick}</div>`;
+            list.appendChild(card);
+        }
+        function removeParticipant(peerId) {
+            document.querySelector(`[data-peer="${peerId}"]`)?.remove();
+        }
+    </script>
+</body>
+</html>
